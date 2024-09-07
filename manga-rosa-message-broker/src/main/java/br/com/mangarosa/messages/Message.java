@@ -5,6 +5,9 @@ import br.com.mangarosa.interfaces.Producer;
 
 import java.time.LocalDateTime;
 
+/**
+ * Messagem para ser processada
+ */
 public class Message {
 
     private Producer producer;
@@ -19,6 +22,10 @@ public class Message {
         this.createdAt = LocalDateTime.now();
     }
 
+    /**
+     * Retorna o produtor que criou a mensagem
+     * @return o producer
+     */
     public Producer getProducer() {
         return producer;
     }
@@ -29,18 +36,34 @@ public class Message {
         this.producer = producer;
     }
 
+    /**
+     * Retorna o horário de criação da mensagem
+     * @return o horário que foi criado
+     */
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
 
+    /**
+     * Retorna se a mensagem foi consumida ou não
+     * @return se foi consumido
+     */
     public boolean isConsumed() {
         return isConsumed;
     }
 
+    /**
+     * Informa que a mensagem foi consumida
+     * @param consumed se foi consumido
+     */
     public void setConsumed(boolean consumed) {
         isConsumed = consumed;
     }
 
+    /**
+     * Retorna a mensagem que deve ser consumida
+     * @return mensagem
+     */
     public String getMessage() {
         return message;
     }
@@ -52,10 +75,18 @@ public class Message {
 
     }
 
+    /**
+     * Retorna o consumidor que consumiu a mensagem
+     * @return consumidor
+     */
     public Consumer getConsumedBy() {
         return consumedBy;
     }
 
+    /**
+     * Atribui o consumidor que consumiu a mensagem
+     * @param consumedBy consumidor
+     */
     public void setConsumedBy(Consumer consumedBy) {
         if(consumedBy == null)
             throw new IllegalArgumentException("The message's consumer can't be null!");
