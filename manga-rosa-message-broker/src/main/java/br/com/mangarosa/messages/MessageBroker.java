@@ -47,4 +47,8 @@ public class MessageBroker {
             throw new IllegalArgumentException("The topic name does not exist, please make sure you are sending the correct key name");
         return this.topics.get(topic);
     }
+
+    public void notifyAllConsumers(){
+        
+    }
 }

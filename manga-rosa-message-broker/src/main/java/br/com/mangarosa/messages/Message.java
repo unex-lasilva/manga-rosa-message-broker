@@ -12,6 +12,7 @@ public class Message {
 
     private Producer producer;
     private final LocalDateTime createdAt;
+    private LocalDateTime consumedAt;
     private boolean isConsumed;
     private String message;
     private Consumer consumedBy;
@@ -58,6 +59,7 @@ public class Message {
      */
     public void setConsumed(boolean consumed) {
         isConsumed = consumed;
+        this.consumedAt = LocalDateTime.now();
     }
 
     /**
@@ -91,5 +93,13 @@ public class Message {
         if(consumedBy == null)
             throw new IllegalArgumentException("The message's consumer can't be null!");
         this.consumedBy = consumedBy;
+    }
+
+    /**
+     * Retorna a data e hora que a mensagem foi consumida
+     * @return data e hora do consumo
+     */
+    public LocalDateTime getConsumedAt(){
+        return this.consumedAt;
     }
 }

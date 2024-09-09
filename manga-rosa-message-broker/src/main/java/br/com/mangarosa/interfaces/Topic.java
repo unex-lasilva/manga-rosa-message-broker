@@ -45,6 +45,7 @@ public interface Topic {
      */
     default void notifyConsumers(Message message){
         addMessage(message);
+
         consumers().forEach(consumer -> consumer.consume(message));
     }
 }
