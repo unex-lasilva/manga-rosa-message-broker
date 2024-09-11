@@ -1,17 +1,28 @@
 package br.com.mangarosa.messages;
 
 import br.com.mangarosa.interfaces.Consumer;
+import br.com.mangarosa.interfaces.MessageRepository;
 import br.com.mangarosa.interfaces.Topic;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 public class MessageBroker {
 
     private final Map<String, Topic> topics;
+    private final MessageRepository repository;
+    private final ScheduledExecutorService scheduleAtFixedRate;
 
-    public MessageBroker(){
+    public MessageBroker(MessageRepository repository){
         this.topics = new HashMap<>();
+        this.repository = repository;
+        this.scheduleAtFixedRate = Executors.newScheduledThreadPool(5);
     }
 
     public void createTopic(Topic topic){
@@ -48,7 +59,18 @@ public class MessageBroker {
         return this.topics.get(topic);
     }
 
-    public void notifyAllConsumers(){
-        
+    public void notifyConsumers(){
+        Runnable notifyTask = () -> {
+            topics.keySet().forEach(key -> {
+                        List<Message> messages = repository
+                                .getAllNotConsumedMessagesByTopic(key);
+
+                        if(Objects.nonNull(messages)){
+
+                        }
+                    });
+        };
+        ScheduledFuture<?> scheduledFuture = scheduleAtFixedRate
+                .scheduleAtFixedRate(notifyTask, 2, 1, TimeUnit.MINUTES);
     }
 }

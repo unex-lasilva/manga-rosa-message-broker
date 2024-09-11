@@ -3,24 +3,52 @@ package br.com.mangarosa.messages;
 import br.com.mangarosa.interfaces.Consumer;
 import br.com.mangarosa.interfaces.Producer;
 
+import java.io.Serializable;
+import java.lang.reflect.Field;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Messagem para ser processada
  */
-public class Message {
+public class Message implements Serializable {
 
+    private String id;
     private Producer producer;
+
     private final LocalDateTime createdAt;
-    private LocalDateTime consumedAt;
+
+    private final List<MessageConsumption> consumptionList;
     private boolean isConsumed;
     private String message;
-    private Consumer consumedBy;
 
     public Message(Producer producer, String message){
         setProducer(producer);
         setMessage(message);
         this.createdAt = LocalDateTime.now();
+        this.consumptionList = new ArrayList<>();
+    }
+
+
+    /**
+     * Retorna o id da mensagem baseado na data de criação
+     * @return o id da mensagem
+     */
+    public String getId() {
+        return id;
+    }
+
+    /**
+     * Atribui o valor de id gerado
+     * @param id id da mensagem
+     */
+    public void setId(String id){
+        if(id == null || id.isBlank() || id.isEmpty())
+            throw new IllegalArgumentException("The message id can't be null, blank or empty");
+        this.id = id;
     }
 
     /**
@@ -59,7 +87,6 @@ public class Message {
      */
     public void setConsumed(boolean consumed) {
         isConsumed = consumed;
-        this.consumedAt = LocalDateTime.now();
     }
 
     /**
@@ -78,28 +105,25 @@ public class Message {
     }
 
     /**
-     * Retorna o consumidor que consumiu a mensagem
-     * @return consumidor
+     * Adiciona o consumo da mensagem
+     * @param consumer consumer
      */
-    public Consumer getConsumedBy() {
-        return consumedBy;
+    public void addConsumption(Consumer consumer){
+        if(consumer == null)
+            throw new IllegalArgumentException("Consumer can't be null in a consumptio");
+        this.consumptionList.add(new MessageConsumption(consumer));
     }
 
-    /**
-     * Atribui o consumidor que consumiu a mensagem
-     * @param consumedBy consumidor
-     */
-    public void setConsumedBy(Consumer consumedBy) {
-        if(consumedBy == null)
-            throw new IllegalArgumentException("The message's consumer can't be null!");
-        this.consumedBy = consumedBy;
-    }
-
-    /**
-     * Retorna a data e hora que a mensagem foi consumida
-     * @return data e hora do consumo
-     */
-    public LocalDateTime getConsumedAt(){
-        return this.consumedAt;
+    public Map<String, String> toMap() throws IllegalAccessException {
+       final HashMap<String, String> map = new HashMap<>();
+        Field[] fields = this.getClass().getDeclaredFields();
+        for (Field field: fields) {
+            field.setAccessible(true);
+            Object value = field.get(this);
+            if(value != null) {
+                map.put(field.getName(), value.toString());
+            }
+        }
+        return map;
     }
 }
