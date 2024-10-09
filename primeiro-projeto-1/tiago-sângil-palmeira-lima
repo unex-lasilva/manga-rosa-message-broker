@@ -1,0 +1,78 @@
+// <dependency>
+//     <groupId>redis.clients</groupId>
+//     <artifactId>jedis</artifactId>
+//     <version>4.3.1</version>
+// </dependency>
+
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
+import java.util.UUID;
+
+// Interface para os produtores
+interface Producer {
+    void sendMessage(String message);
+}
+
+// Classe base para os produtores
+abstract class BaseProducer implements Producer {
+    protected final JedisPool jedisPool;
+    protected final String topic;
+
+    public BaseProducer(JedisPool jedisPool, String topic) {
+        this.jedisPool = jedisPool;
+        this.topic = topic;
+    }
+
+    @Override
+    public void sendMessage(String message) {
+        try (Jedis jedis = jedisPool.getResource()) {
+            String messageId = UUID.randomUUID().toString();
+            jedis.lpush(topic, messageId + ":" + message);
+            System.out.println("Mensagem enviada para " + topic + ": " + message);
+        }
+    }
+}
+
+// Produtores para queue/fast-delivery-items
+class FoodDeliveryProducer extends BaseProducer {
+    public FoodDeliveryProducer(JedisPool jedisPool) {
+        super(jedisPool, "queue/fast-delivery-items");
+    }
+}
+
+class PhysicPersonDeliveryProducer extends BaseProducer {
+    public PhysicPersonDeliveryProducer(JedisPool jedisPool) {
+        super(jedisPool, "queue/fast-delivery-items");
+    }
+}
+
+// Produtores para queue/long-distance-items
+class PyMarketPlaceProducer extends BaseProducer {
+    public PyMarketPlaceProducer(JedisPool jedisPool) {
+        super(jedisPool, "queue/long-distance-items");
+    }
+}
+
+class FastDeliveryProducer extends BaseProducer {
+    public FastDeliveryProducer(JedisPool jedisPool) {
+        super(jedisPool, "queue/long-distance-items");
+    }
+}
+
+public class MessageBrokerExample {
+    public static void main(String[] args) {
+        JedisPool jedisPool = new JedisPool("localhost", 6379);
+
+        FoodDeliveryProducer foodDeliveryProducer = new FoodDeliveryProducer(jedisPool);
+        PhysicPersonDeliveryProducer physicPersonDeliveryProducer = new PhysicPersonDeliveryProducer(jedisPool);
+        PyMarketPlaceProducer pyMarketPlaceProducer = new PyMarketPlaceProducer(jedisPool);
+        FastDeliveryProducer fastDeliveryProducer = new FastDeliveryProducer(jedisPool);
+
+        foodDeliveryProducer.sendMessage("Pedido de pizza");
+        physicPersonDeliveryProducer.sendMessage("Entrega de documento");
+        pyMarketPlaceProducer.sendMessage("Pedido de eletrônico");
+        fastDeliveryProducer.sendMessage("Entrega expressa de pacote");
+
+        jedisPool.close();
+    }
+}
