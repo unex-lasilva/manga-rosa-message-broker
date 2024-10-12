@@ -1,56 +1,89 @@
-package br.com.mangarosa;
+package main.br.com.mangarosa;
 
-import br.com.mangarosa.messages.Message;
-import io.lettuce.core.Consumer;
-import io.lettuce.core.RedisClient;
-import io.lettuce.core.StreamMessage;
-import io.lettuce.core.XReadArgs;
-import io.lettuce.core.api.StatefulRedisConnection;
-import io.lettuce.core.api.sync.RedisCommands;
+import main.br.com.mangarosa.interfaces.Consumer;
+import main.br.com.mangarosa.interfaces.MessageRepository;
+import main.br.com.mangarosa.interfaces.Producer;
+import main.br.com.mangarosa.implementations.*;
+import main.br.com.mangarosa.producer.*;
+import org.slf4j.Logger; // resolvi usar o Logback ao invés do System.out.println para ter um monitoramento mais detalhado da execução do sistema
+import org.slf4j.LoggerFactory;
+import redis.clients.jedis.JedisPooled;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
-//TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
-// click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
+import static main.br.com.mangarosa.implementations.JedisRedis.getJedisPool;
+
 public class Main {
-    public static void main(String[] args) throws IllegalAccessException {
-        TProducer tProducer = new TProducer();
-        Message message = new Message(tProducer, "Teste");
-        Message message2 = new Message(tProducer, "Teste");
-        Map<String, String> m = message2.toMap();
-
-        System.out.println(m);
-        System.out.println(message2.getId());
-        System.out.println(message.getId());
-
-
-        RedisClient redisClient = RedisClient.create("redis://localhost:6379"); // change to reflect your environment
-        StatefulRedisConnection<String, String> connection = redisClient.connect();
-        RedisCommands<String, String> syncCommands = connection.sync();
-
-        String messageId = syncCommands.xadd(
-                tProducer.name(),
-                m);
-        message.setId(messageId);
-
-        System.out.println( String.format("Message %s : %s posted", messageId, m) );
-
-        List<StreamMessage<String, String>> messages = syncCommands.xreadgroup(
-                Consumer.from("application_1", "consumer_1"),
-                XReadArgs.StreamOffset.lastConsumed(tProducer.name())
-        );
-
-        if (!messages.isEmpty()) {
-            for (StreamMessage<String, String> message1 : messages) {
-                System.out.println(message1);
-                // Confirm that the message has been processed using XACK
-                syncCommands.xack("application_1", "application_1",  message1.getId());
+    private static final Logger logger = LoggerFactory.getLogger(Main.class);
+    public static void main(String[] args) {
+        JedisPooled jedis = getJedisPool();
+        Producer foodDeliveryProducer = new FoodDeliveryProducer("foodDeliveryProducer");
+        Producer physicPersonDeliveryProducer = new PhysicPersonDeliveryProducer("physicPersonDeliveryProducer");
+        Producer pyMarketPlaceProducer = new PyMarketPlaceProducer("pyMarketPlaceProducer");
+        Producer fastDeliveryProducer = new FastDeliveryProducer("fastDeliveryProducer");
+        Topico fastDelivery = new Topico("queue/fast-delivery-items"); // implementação do tópico dos produtores: FoodDeliveryProducer e PhysicPersonDeliveryProducer
+        Topico longDistanceDelivery = new Topico("queue/long-distance-items"); // implementação do tópico dos produtores: PyMarketPlaceProducer e FastDeliveryProducer
+        Consumer fastConsumer = new MyConsumer("fastConsumer"); // Consumidor do tópico queue/fast-delivery-items
+        Consumer slowConsumer = new MyConsumer("slowConsumer"); // Consumidor do tópico queue/long-distance-items
+        fastDelivery.subscribe(fastConsumer);
+        longDistanceDelivery.subscribe(slowConsumer);
+        MessageRepository messageRepository = new MyRepository(new HashMap<>() {
+            {
+                put(fastDelivery.name(), fastDelivery);
+                put(longDistanceDelivery.name(), longDistanceDelivery);
             }
-        }
-
-        connection.close();
-        redisClient.shutdown();
+        });
+        foodDeliveryProducer.generateMessage("Pedido de foodDelivery criado com sucesso.", 1).forEach((k, v) -> {
+            messageRepository.append(fastDelivery.name(), v);
+            messageRepository.append(longDistanceDelivery.name(), v);
+            try {
+                jedis.set(k, v.toString());
+                jedis.expire(k, 300); // expirando em 5 minutos
+                fastDelivery.notifyConsumers(v);
+                longDistanceDelivery.notifyConsumers(v);
+                logger.info("Mensagem de foodDelivery enviada e armazenada no Redis com ID: {}", k);
+            } catch (Exception ex) {
+                logger.error("Erro ao armazenar mensagem no Redis", ex);
+            }
+        });
+        physicPersonDeliveryProducer.generateMessage("Pedido de PhysicPersonDelivery criado com sucesso.", 1).forEach((k, v) -> {
+            messageRepository.append(fastDelivery.name(), v);
+            messageRepository.append(longDistanceDelivery.name(), v);
+            try {
+                jedis.set(k, v.toString());
+                jedis.expire(k, 300); // expirando em 5 minutos
+                fastDelivery.notifyConsumers(v);
+                longDistanceDelivery.notifyConsumers(v);
+                logger.info("Mensagem de PhysicPersonDelivery enviada e armazenada no Redis com ID: {}", k);
+            } catch (Exception ex) {
+                logger.error("Erro ao armazenar mensagem no Redis", ex);
+            }
+        });
+        pyMarketPlaceProducer.generateMessage("Pedido de MarketPlace criado.", 1).forEach((k, v) -> {
+            messageRepository.append(fastDelivery.name(), v);
+            messageRepository.append(longDistanceDelivery.name(), v);
+            try {
+                jedis.set(k, v.toString());
+                jedis.expire(k, 300); // expirando em 5 minutos
+                fastDelivery.notifyConsumers(v);
+                longDistanceDelivery.notifyConsumers(v);
+                logger.info("Mensagem de pyMarketPlaceProducer enviada e armazenada no Redis com ID: {}", k);
+            } catch (Exception ex) {
+                logger.error("Erro ao armazenar mensagem no Redis", ex);
+            }
+        });
+        fastDeliveryProducer.generateMessage("Pedido de fastDelivery criado.", 1).forEach((k, v) -> {
+            messageRepository.append(fastDelivery.name(), v);
+            messageRepository.append(longDistanceDelivery.name(), v);
+            try {
+                jedis.set(k, v.toString());
+                jedis.expire(k, 300); // expirando em 5 minutos
+                fastDelivery.notifyConsumers(v);
+                longDistanceDelivery.notifyConsumers(v);
+                logger.info("Mensagem de fastDeliveryProducer enviada e armazenada no Redis com ID: {}", k);
+            } catch (Exception ex) {
+                logger.error("Erro ao armazenar mensagem no Redis", ex);
+            }
+        });
     }
 }
