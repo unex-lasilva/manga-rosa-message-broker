@@ -93,10 +93,10 @@ public class Main {
         /**
          * Consome as mensagens
          */
-        // consumidorEntregaRapida.consume(messageEntregaComida);
-        // consumidorEntregaRapida.consume(messageEntregaPessoa);
-        // consumidorLongaDistancia.consume(messageMarketplace);
-        // consumidorLongaDistancia.consume(messageEntregaRapida);
+        consumidorEntregaRapida.consume(messageEntregaComida);
+        consumidorEntregaRapida.consume(messageEntregaPessoa);
+        consumidorLongaDistancia.consume(messageMarketplace);
+        consumidorLongaDistancia.consume(messageEntregaRapida);
 
         /**
          * Imprime mensagens consumidas para cada tópico
