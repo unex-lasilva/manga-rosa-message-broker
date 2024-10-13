@@ -10,13 +10,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Messagem para ser processada
  */
 public class Message implements Serializable {
 
-    private String id;
+    private UUID id;
     private Producer producer;
 
     private final LocalDateTime createdAt;
@@ -37,16 +38,15 @@ public class Message implements Serializable {
      * Retorna o id da mensagem baseado na data de criação
      * @return o id da mensagem
      */
-    public String getId() {
+    public UUID getId() {
         return id;
     }
-
     /**
      * Atribui o valor de id gerado
      * @param id id da mensagem
      */
-    public void setId(String id){
-        if(id == null || id.isBlank() || id.isEmpty())
+    public void setId(UUID id){
+        if(id == null || id.toString().isBlank() || id.toString().isEmpty())
             throw new IllegalArgumentException("The message id can't be null, blank or empty");
         this.id = id;
     }
