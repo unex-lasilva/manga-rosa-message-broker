@@ -22,7 +22,7 @@ public interface MessageRepository {
      * @param topic nome do tópico que deve existir
      * @param messageId código da mensagem
      */
-    void consumeMessage(String topic, UUID messageId);
+    void consumeMessage(String topic, String messageId);
 
     /**
      * Retorna todas as mensagens ainda não consumidas e não expiradas que estão num tópico.

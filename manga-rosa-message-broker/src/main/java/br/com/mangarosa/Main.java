@@ -1,55 +1,80 @@
 package br.com.mangarosa;
 
+import java.util.List;
+import java.util.UUID;
+
+import br.com.mangarosa.consumer.BaseConsumer;
 import br.com.mangarosa.messages.Message;
-import io.lettuce.core.Consumer;
+import br.com.mangarosa.producer.BaseProducer;
+import br.com.mangarosa.services.MessageRepositoryImpl;
+import br.com.mangarosa.services.TopicImpl;
 import io.lettuce.core.RedisClient;
-import io.lettuce.core.StreamMessage;
-import io.lettuce.core.XReadArgs;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-//TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
-// click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
 public class Main {
     public static void main(String[] args) throws IllegalAccessException {
-        TProducer tProducer = new TProducer();
-        Message message = new Message(tProducer, "Teste");
-        Message message2 = new Message(tProducer, "Teste");
-        Map<String, String> m = message2.toMap();
-
-        System.out.println(m);
-        System.out.println(message2.getId());
-        System.out.println(message.getId());
-
-
-        RedisClient redisClient = RedisClient.create("redis://localhost:6379"); // change to reflect your environment
+        // Criando cliente Redis
+        RedisClient redisClient = RedisClient.create("redis://localhost:6379");
         StatefulRedisConnection<String, String> connection = redisClient.connect();
         RedisCommands<String, String> syncCommands = connection.sync();
 
-        String messageId = syncCommands.xadd(
-                tProducer.name(),
-                m);
-        message.setId(messageId);
+        // Criando o repositório e o tópico
+        MessageRepositoryImpl messageRepository = new MessageRepositoryImpl(redisClient, connection);
+        TopicImpl topicFast = new TopicImpl("queue/fast-delivery-items", messageRepository);
+        TopicImpl topicLong = new TopicImpl("queue/long-distance-items", messageRepository);
 
-        System.out.println( String.format("Message %s : %s posted", messageId, m) );
+        // Criando o produtor e associando o tópico
+        BaseProducer fastDeliveryProducer = new BaseProducer(redisClient, "FastDelivery");
+        fastDeliveryProducer.addTopic(topicLong);
 
-        List<StreamMessage<String, String>> messages = syncCommands.xreadgroup(
-                Consumer.from("application_1", "consumer_1"),
-                XReadArgs.StreamOffset.lastConsumed(tProducer.name())
-        );
+        BaseProducer pyMarketPlaceProducer = new BaseProducer(redisClient, "PyMarketPlace");
+        pyMarketPlaceProducer.addTopic(topicLong);
 
-        if (!messages.isEmpty()) {
-            for (StreamMessage<String, String> message1 : messages) {
-                System.out.println(message1);
-                // Confirm that the message has been processed using XACK
-                syncCommands.xack("application_1", "application_1",  message1.getId());
-            }
+        BaseProducer physicPersonDeliveryProducer = new BaseProducer(redisClient, "PhysicPersonDelivery");
+        physicPersonDeliveryProducer.addTopic(topicFast);
+
+        BaseProducer foodDeliveryProducer = new BaseProducer(redisClient, "FoodDelivery");
+        foodDeliveryProducer.addTopic(topicFast);
+
+        // Criando os consumidores e inscrevendo nos tópicos
+        BaseConsumer fastConsumer = new BaseConsumer("FastConsumer");
+        topicFast.subscribe(fastConsumer);
+
+        BaseConsumer longConsumer = new BaseConsumer("LongConsumer");
+        topicLong.subscribe(longConsumer);
+
+        // Enviando uma nova mensagem pelo produtor
+        String messageContent = "Nova mensagem de entrega rápida";
+        fastDeliveryProducer.sendMessage(messageContent);
+
+        String messageContent2 = "Nova mensagem de entrega longa";
+        pyMarketPlaceProducer.sendMessage(messageContent2);
+
+        String messageContent3 = "Nova mensagem de entrega raíz";
+        physicPersonDeliveryProducer.sendMessage(messageContent3);
+
+        String messageContent4 = "Nova mensagem de entrega de alimentos";
+        foodDeliveryProducer.sendMessage(messageContent4);
+
+        // Teste: Obtendo mensagens não consumidas de um tópico
+        List<Message> notConsumedMessages = messageRepository
+                .getAllNotConsumedMessagesByTopic("queue/fast-delivery-items");
+        System.out.println("Mensagens não consumidas:");
+        for (Message msg : notConsumedMessages) {
+            System.out.println(
+                    "ID: " + msg.getId() + ", Mensagem: " + msg.getMessage() + ", Consumido: " + msg.isConsumed());
         }
 
+        // Teste: Obtendo mensagens consumidas de um tópico
+        List<Message> consumedMessages = messageRepository.getAllConsumedMessagesByTopic("queue/fast-delivery-items");
+        System.out.println("Mensagens consumidas:");
+        for (Message msg : consumedMessages) {
+            System.out.println(
+                    "ID: " + msg.getId() + ", Mensagem: " + msg.getMessage() + ", Consumido: " + msg.isConsumed());
+        }
+
+        // Fechando a conexão Redis
         connection.close();
         redisClient.shutdown();
     }
