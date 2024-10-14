@@ -26,8 +26,8 @@ public interface Producer extends Serializable {
     void sendMessage(String message);
 
     /**
-     * Retorna o nome do tópico que deve ser único em um broker
-     * @return nome do tópico
+     * Retorna o nome do produtor que deve ser único em um broker
+     * @return nome do produtor
      */
     String name();
 }

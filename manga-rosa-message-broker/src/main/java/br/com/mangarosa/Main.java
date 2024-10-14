@@ -1,56 +1,80 @@
 package br.com.mangarosa;
 
-import br.com.mangarosa.messages.Message;
-import io.lettuce.core.Consumer;
-import io.lettuce.core.RedisClient;
-import io.lettuce.core.StreamMessage;
-import io.lettuce.core.XReadArgs;
-import io.lettuce.core.api.StatefulRedisConnection;
-import io.lettuce.core.api.sync.RedisCommands;
-
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
+import java.util.Random;
+import java.util.UUID;
 
-//TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
-// click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
+import br.com.mangarosa.messages.Message;
+import br.com.mangarosa.messages.MessageBroker;
+import br.com.mangarosa.my_impl.redis.interfaces.RedisConsumer;
+import br.com.mangarosa.my_impl.redis.interfaces.RedisProducer;
+import br.com.mangarosa.my_impl.redis.interfaces.RedisRepository;
+import br.com.mangarosa.my_impl.redis.interfaces.RedisTopic;
+
+
 public class Main {
     public static void main(String[] args) throws IllegalAccessException {
-        TProducer tProducer = new TProducer();
-        Message message = new Message(tProducer, "Teste");
-        Message message2 = new Message(tProducer, "Teste");
-        Map<String, String> m = message2.toMap();
 
-        System.out.println(m);
-        System.out.println(message2.getId());
-        System.out.println(message.getId());
+        // Inicialização do programa
+        final String separador = String.join("", Collections.nCopies(100, "-"));
+        final String cabecalho = "\t\t\tDEMONSTRAÇÃO DE FUNCIONAMENTO DO MESSAGE BROKER";
+        System.out.println(separador);
+        System.out.println(cabecalho);
+        System.out.println(separador);
 
+        // Inicialização do repositório Redis
+        // (assim que é iniciado, ele começa a monitorar periodicamente por mensagens expiradas, removendo-as)
+        final RedisRepository repository = new RedisRepository();
 
-        RedisClient redisClient = RedisClient.create("redis://localhost:6379"); // change to reflect your environment
-        StatefulRedisConnection<String, String> connection = redisClient.connect();
-        RedisCommands<String, String> syncCommands = connection.sync();
+        // Inicialização do MessageBroker
+        final MessageBroker messageBroker = new MessageBroker(repository);
 
-        String messageId = syncCommands.xadd(
-                tProducer.name(),
-                m);
-        message.setId(messageId);
+        // Inicialização dos novos tópicos implementados
+        final RedisTopic fastTopic = new RedisTopic("FastDeliveryItemsTopic"); //especialização do tópico Redis genérico
+        final RedisTopic longTopic = new RedisTopic("LongDistanceItemsTopic"); //especialização do tópico Redis genérico
 
-        System.out.println( String.format("Message %s : %s posted", messageId, m) );
+        // Inicialização dos novos producers implementados
+        final RedisProducer foodProducer = new RedisProducer("FoodDeliveryProducer"); //especialização do producer genérico, para o tópico fast-delivey-items
+        final RedisProducer physicProducer = new RedisProducer("PhysicPersonDeliveryProducer"); //especialização do producer genérico, para o tópico fast-delivey-items
+        final RedisProducer fastProducer = new RedisProducer("FastDeliveryProducer"); //especialização do producer genérico, para o tópico long-distance-items
+        final RedisProducer marketProducer = new RedisProducer("PyMarketPlaceProducer"); //especialização do producer genérico, para o tópico long-distance-items
 
-        List<StreamMessage<String, String>> messages = syncCommands.xreadgroup(
-                Consumer.from("application_1", "consumer_1"),
-                XReadArgs.StreamOffset.lastConsumed(tProducer.name())
-        );
+        // Inicialização dos novos consumers implementados
+        final RedisConsumer fastConsumer = new RedisConsumer("FastDeliveryItemsConsumer"); //especialização do consumer genérico, para o tópico fast-delivery-items
+        final RedisConsumer longConsumer = new RedisConsumer("LongDistanceItemsConsumer"); //especialização do consumer genérico, para o tópico long-distance-items
 
-        if (!messages.isEmpty()) {
-            for (StreamMessage<String, String> message1 : messages) {
-                System.out.println(message1);
-                // Confirm that the message has been processed using XACK
-                syncCommands.xack("application_1", "application_1",  message1.getId());
-            }
+        // Linkagem do tópico "fast-delivery-items" aos Producers "FoodDeliveryProducer" e "PhysicPersonDelivery"
+        foodProducer.addTopic(fastTopic);
+        physicProducer.addTopic(fastTopic);
+
+        // Linkagem do tópico "long-distance-items" aos Producers "PyMarketPlaceProducer" e "FastDeliveryProducer"
+        fastProducer.addTopic(longTopic);
+        marketProducer.addTopic(longTopic);
+
+        // Inscrição do Consumidor no tópico "fast-delivery-items"
+        fastTopic.subscribe(fastConsumer);
+
+        // Inscrição do Consumidor no tópico "long-distance-items"
+        longTopic.subscribe(longConsumer);
+
+        // Produção de 10 Mensagens de forma aleatória
+        for (int i = 1; i <= 10; i++) {
+            RedisProducer[] producers = {foodProducer, physicProducer, fastProducer, marketProducer};
+            RedisTopic[] topics = {fastTopic, longTopic};
+            int producerIndex = new Random().nextInt(producers.length);
+            int topicIndex = new Random().nextInt(topics.length);
+            RedisProducer producer = producers[producerIndex];
+            RedisTopic topic = topics[topicIndex];
+            String randString = UUID.randomUUID().toString().replaceAll("-", "");
+            Message message = new Message(producer, randString);
+            topic.addMessage(message);
         }
 
-        connection.close();
-        redisClient.shutdown();
-    }
+        System.out.println("- Mensagens publicadas de forma aleatória no repositório Redis!");
+        System.out.println("- A mensagens expiradas serão automaticamente removidas em cada interação com o repositório!");
+
+
+
+   }
 }
