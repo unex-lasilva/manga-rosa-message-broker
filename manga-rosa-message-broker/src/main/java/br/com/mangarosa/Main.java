@@ -1,56 +1,54 @@
 package br.com.mangarosa;
 
-import br.com.mangarosa.messages.Message;
-import io.lettuce.core.Consumer;
-import io.lettuce.core.RedisClient;
-import io.lettuce.core.StreamMessage;
-import io.lettuce.core.XReadArgs;
-import io.lettuce.core.api.StatefulRedisConnection;
-import io.lettuce.core.api.sync.RedisCommands;
+import br.com.mangarosa.interfaces.Consumer;
+import br.com.mangarosa.interfaces.Producer;
+import br.com.mangarosa.messages.MessageBroker;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-//TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
-// click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
 public class Main {
+
     public static void main(String[] args) throws IllegalAccessException {
-        TProducer tProducer = new TProducer();
-        Message message = new Message(tProducer, "Teste");
-        Message message2 = new Message(tProducer, "Teste");
-        Map<String, String> m = message2.toMap();
+        //Criando Repo
+        TMessageRepository messageRepository = new TMessageRepository();
+        MessageBroker messageBroker = new MessageBroker(messageRepository);
 
-        System.out.println(m);
-        System.out.println(message2.getId());
-        System.out.println(message.getId());
+        Producer fastDeliveryProducer = new TProducer("FastDelivery");
+        Producer pyMarketPlaceProducer = new TProducer("PyMarketPlace");
 
+        Producer foodDeliverProducer = new TProducer("FoodDeliver");
+        Producer physicPersonDeliveryProducer = new TProducer("PhysicPersonDelivery");
 
-        RedisClient redisClient = RedisClient.create("redis://localhost:6379"); // change to reflect your environment
-        StatefulRedisConnection<String, String> connection = redisClient.connect();
-        RedisCommands<String, String> syncCommands = connection.sync();
+        TTopic topic1 = new TTopic("queue/long-distance-items", messageRepository);
+        TTopic topic2 = new TTopic("queue/fast-delivery-items", messageRepository);
 
-        String messageId = syncCommands.xadd(
-                tProducer.name(),
-                m);
-        message.setId(messageId);
+        Consumer longDistanceConsumer = new TConsumer("LongDistance");
+        Consumer fastDeliveryConsumer = new TConsumer("FastDelivery");
 
-        System.out.println( String.format("Message %s : %s posted", messageId, m) );
+        messageBroker.createTopic(topic1);
+        messageBroker.createTopic(topic2);
 
-        List<StreamMessage<String, String>> messages = syncCommands.xreadgroup(
-                Consumer.from("application_1", "consumer_1"),
-                XReadArgs.StreamOffset.lastConsumed(tProducer.name())
-        );
+        messageBroker.subscribe(topic1.name(), longDistanceConsumer);
+        messageBroker.subscribe(topic2.name(), fastDeliveryConsumer);
 
-        if (!messages.isEmpty()) {
-            for (StreamMessage<String, String> message1 : messages) {
-                System.out.println(message1);
-                // Confirm that the message has been processed using XACK
-                syncCommands.xack("application_1", "application_1",  message1.getId());
-            }
-        }
+        fastDeliveryProducer.addTopic(topic1);
+        pyMarketPlaceProducer.addTopic(topic1);
 
-        connection.close();
-        redisClient.shutdown();
+        foodDeliverProducer.addTopic(topic2);
+        physicPersonDeliveryProducer.addTopic(topic2);
+
+        fastDeliveryProducer.sendMessage("Chapeuzinho Vermelho");
+        pyMarketPlaceProducer.sendMessage("Pica Pau");
+
+        topic1.mensagens().forEach(mensagem -> {
+            System.out.println("Consumindo mensagem: " + mensagem.getId());
+            System.out.println("Consumindo mensagem: " + mensagem.getMessage());
+            //System.out.println("UUID: " + UUID.nameUUIDFromBytes(mensagem.getId().getBytes()));
+            messageRepository.consumeMessage(topic1.name(), mensagem.getId());
+            mensagem.setConsumed(true);
+
+            System.out.println("--------------------------- FIM ---------------------------");
+        });
+
+        System.out.println(messageRepository.getAllConsumedMessagesByTopic(topic1.name()));
+
     }
 }
