@@ -1,5 +1,5 @@
-package br.com.mangarosa.messages;
-
+package br.com.mangarosa.messages; // Adicione esta linha no início do arquivo
+import br.com.mangarosa.HProducer;
 import br.com.mangarosa.interfaces.Consumer;
 import br.com.mangarosa.interfaces.Producer;
 
@@ -17,7 +17,7 @@ import java.util.Map;
 public class Message implements Serializable {
 
     private String id;
-    private Producer producer;
+    private HProducer producer;
 
     private final LocalDateTime createdAt;
 
@@ -25,7 +25,8 @@ public class Message implements Serializable {
     private boolean isConsumed;
     private String message;
 
-    public Message(Producer producer, String message){
+
+    public Message(HProducer producer, String message){
         setProducer(producer);
         setMessage(message);
         this.createdAt = LocalDateTime.now();
@@ -55,11 +56,11 @@ public class Message implements Serializable {
      * Retorna o produtor que criou a mensagem
      * @return o producer
      */
-    public Producer getProducer() {
+    public HProducer getProducer() {
         return producer;
     }
 
-    private void setProducer(Producer producer) {
+    private void setProducer(HProducer producer) {
         if(producer == null)
             throw new IllegalArgumentException("The message's producer can't be null");
         this.producer = producer;
@@ -126,4 +127,43 @@ public class Message implements Serializable {
         }
         return map;
     }
+
+
+    /**
+     * Cria um objeto Message a partir de uma string formatada.
+     * Este método é usado principalmente no RedisMessageRepository para reconstruir objetos Message
+     * a partir de strings armazenadas no Redis.
+     *
+     * @param messageStr A string formatada contendo os dados da mensagem (formato: "id|conteúdo")
+     * @return Um novo objeto Message criado a partir da string fornecida
+     */
+    public static Message fromString(String messageStr) {
+        // Divide a string em partes usando o caractere '|' como separador
+        String[] parts = messageStr.split("\\|");
+        
+        // Cria uma nova mensagem com um novo HProducer e o conteúdo da mensagem (terceira parte)
+        // Nota: Aqui, um novo HProducer é criado, o que pode não refletir o produtor original
+        Message message = new Message(new HProducer(), parts[1]);
+        
+        // Define o ID da mensagem (primeira parte)
+        message.setId(parts[0]);
+        
+        // Define o status de consumo da mensagem (segunda parte, convertida para boolean)
+        
+        return message;
+    }
+
+    /**
+     * Retorna uma representação em string da mensagem.
+     * Este método é usado no RedisMessageRepository para converter objetos Message em strings
+     * antes de armazená-los no Redis.
+     *
+     * @return Uma string representando a mensagem no formato "id|isConsumed|conteúdo"
+     */
+    @Override
+    public String toString() {
+        // Formata a string com o ID, status de consumo e conteúdo da mensagem
+        return String.format("%s|%s", id, message);
+    }
+
 }

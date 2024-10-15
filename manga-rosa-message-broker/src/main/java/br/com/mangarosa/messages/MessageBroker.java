@@ -59,18 +59,29 @@ public class MessageBroker {
         return this.topics.get(topic);
     }
 
+    /**
+     * Notifica todos os consumidores inscritos sobre uma nova mensagem.
+     * @param message Mensagem a ser notificada
+     */
+
+    /**
+     * Acabei implementando o método um pouco mais, pois estava dando erro quando rodava o projeto.
+     */
+    
     public void notifyConsumers(){
         Runnable notifyTask = () -> {
             topics.keySet().forEach(key -> {
-                        List<Message> messages = repository
-                                .getAllNotConsumedMessagesByTopic(key);
-
-                        if(Objects.nonNull(messages)){
-
-                        }
+                List<Message> messages = repository.getAllNotConsumedMessagesByTopic(key);
+                if (Objects.nonNull(messages)) {
+                    messages.forEach(message -> {
+                        Topic topic = topics.get(key);
+                        topic.notifyConsumers(message);
                     });
+                }
+            });
         };
         ScheduledFuture<?> scheduledFuture = scheduleAtFixedRate
                 .scheduleAtFixedRate(notifyTask, 2, 1, TimeUnit.MINUTES);
     }
 }
+
