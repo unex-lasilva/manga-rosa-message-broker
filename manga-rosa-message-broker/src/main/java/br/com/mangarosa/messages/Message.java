@@ -1,7 +1,8 @@
 package br.com.mangarosa.messages;
 
-import br.com.mangarosa.interfaces.Consumer;
-import br.com.mangarosa.interfaces.Producer;
+import br.com.mangarosa.adapters.LocalDateTimeAdapter;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 import java.io.Serializable;
 import java.lang.reflect.Field;
@@ -15,21 +16,31 @@ import java.util.Map;
  * Messagem para ser processada
  */
 public class Message implements Serializable {
+// Declara a classe `Message`, que implementa `Serializable` para permitir a serialização de suas instâncias
 
     private String id;
-    private Producer producer;
+    private String producer;
 
     private final LocalDateTime createdAt;
 
-    private final List<MessageConsumption> consumptionList;
+    private final List<String> consumptionList;
     private boolean isConsumed;
     private String message;
 
-    public Message(Producer producer, String message){
+    public Message(String producer, String message){
+    // Construtor da classe Message
+
         setProducer(producer);
         setMessage(message);
         this.createdAt = LocalDateTime.now();
         this.consumptionList = new ArrayList<>();
+    }
+
+    public List<String> getConsumptionList() {
+        return consumptionList;
+        // Retorna a lista de consumidores que consumiram a mensagem
+    }
+
     }
 
 
@@ -55,11 +66,11 @@ public class Message implements Serializable {
      * Retorna o produtor que criou a mensagem
      * @return o producer
      */
-    public Producer getProducer() {
+    public String getProducer() {
         return producer;
     }
 
-    private void setProducer(Producer producer) {
+    private void setProducer(String producer) {
         if(producer == null)
             throw new IllegalArgumentException("The message's producer can't be null");
         this.producer = producer;
@@ -108,22 +119,42 @@ public class Message implements Serializable {
      * Adiciona o consumo da mensagem
      * @param consumer consumer
      */
-    public void addConsumption(Consumer consumer){
+    public void addConsumption(String consumer){
         if(consumer == null)
             throw new IllegalArgumentException("Consumer can't be null in a consumptio");
-        this.consumptionList.add(new MessageConsumption(consumer));
+        this.consumptionList.add(consumer);
     }
 
+    // Converte a mensagem em um mapa, refletindo seus campos
     public Map<String, String> toMap() throws IllegalAccessException {
-       final HashMap<String, String> map = new HashMap<>();
-        Field[] fields = this.getClass().getDeclaredFields();
+       final HashMap<String, String> map = new HashMap<>(); // Cria um novo mapa para armazenar os campos
+        Field[] fields = this.getClass().getDeclaredFields(); // Obtém todos os campos da classe
         for (Field field: fields) {
-            field.setAccessible(true);
-            Object value = field.get(this);
+            field.setAccessible(true); // Permite acesso a campos privados
+            Object value = field.get(this);  // Obtém o valor do campo
             if(value != null) {
-                map.put(field.getName(), value.toString());
+                map.put(field.getName(), value.toString()); // Adiciona o campo e seu valor ao mapa
             }
         }
-        return map;
+        return map; // Retorna o mapa com os campos da mensagem
+    }
+
+    public String toJson() {
+    // Converte a mensagem em uma representação JSON
+
+        Gson gson = new GsonBuilder()
+                .registerTypeAdapter(LocalDateTime.class, new LocalDateTimeAdapter())  // Registra adaptador para LocalDateTime
+                .create();
+
+        return gson.toJson(this); // Converte a instância da mensagem em JSON
+    }
+
+    public static Message fromJson(String json) {
+    // Converte uma representação JSON em uma instância de mensagem
+
+        Gson gson = new GsonBuilder()
+                .registerTypeAdapter(LocalDateTime.class, new LocalDateTimeAdapter())  // Registra adaptador para LocalDateTime
+                .create();
+        return gson.fromJson(json, Message.class); // Converte o JSON em uma instância da classe Message
     }
 }

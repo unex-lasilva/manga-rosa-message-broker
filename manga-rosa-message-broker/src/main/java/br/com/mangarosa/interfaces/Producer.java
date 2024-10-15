@@ -1,5 +1,7 @@
 package br.com.mangarosa.interfaces;
 
+import br.com.mangarosa.topics.Topic;
+
 import java.io.Serializable;
 
 /**
@@ -29,5 +31,5 @@ public interface Producer extends Serializable {
      * Retorna o nome do tópico que deve ser único em um broker
      * @return nome do tópico
      */
-    String name();
+    String name(int index);
 }
