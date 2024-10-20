@@ -93,6 +93,7 @@ public class RedisMessageRepository implements MessageRepository {
         }
     }
 
+    
     /**
      * Marca uma mensagem como consumida.
      * @param topic Nome do tópico
