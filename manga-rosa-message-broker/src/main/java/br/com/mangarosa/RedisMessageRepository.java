@@ -93,7 +93,7 @@ public class RedisMessageRepository implements MessageRepository {
         }
     }
 
-    
+
     /**
      * Marca uma mensagem como consumida.
      * @param topic Nome do tópico
@@ -114,7 +114,6 @@ public class RedisMessageRepository implements MessageRepository {
             throw new IllegalArgumentException("Mensagem não encontrada no tópico: " + topic);
         }
     }
-
 
     /**
      * Retorna todas as mensagens não consumidas de um tópico.
