@@ -11,14 +11,7 @@ import java.util.concurrent.CompletableFuture;
  * pelos consumidores.
  */
 public interface Topic extends Serializable {
-
-    /**
-     *
-     * @return retorna se o tópico foi criado
-     */
-    boolean isCreated();
-
-    /**
+    /***
      * Retorna o nome do tópico
      * @return topic name
      */
@@ -60,12 +53,12 @@ public interface Topic extends Serializable {
      */
     default void notifyConsumers(Message message){
         consumers().forEach( consumer -> {
-           CompletableFuture<Void> completableFuture = CompletableFuture
-                   .runAsync(() -> consumer.consume(message));
-           completableFuture.thenAccept(result -> System.out.println("Ok"));
+           CompletableFuture<Boolean> completableFuture = CompletableFuture
+                   .supplyAsync(() -> consumer.consume(message));
+           completableFuture.thenAccept(result ->
+                           System.out.printf("d")
+                   );
         });
 
     }
-
-    List<Message> getMessages();
 }

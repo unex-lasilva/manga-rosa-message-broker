@@ -1,9 +1,6 @@
 package br.com.mangarosa.interfaces;
 
-import br.com.mangarosa.messages.Message;
-
 import java.io.Serializable;
-import java.util.HashMap;
 
 /**
  * Produz mensagens para serem consumidas
@@ -29,10 +26,8 @@ public interface Producer extends Serializable {
     void sendMessage(String message);
 
     /**
-     * Retorna o nome do tópico que deve ser único em um broker
-     * @return nome do tópico
+     * Retorna o nome do produtor que deve ser único em um broker
+     * @return nome do produtor
      */
     String name();
-
-    HashMap<String, Message> generateMessage(String message, int count);
 }
